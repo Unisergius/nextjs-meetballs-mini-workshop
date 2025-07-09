@@ -80,7 +80,6 @@ export default {
 
 * Use the `metadata` export in `app/news/[slug]/page.tsx` to set dynamic titles and descriptions.
 * Generate Open Graph & Twitter card images with the built‑in Image Response (`app/news/[slug]/opengraph-image.tsx`).
-* Add `robots.ts` and `sitemap.xml/route.ts` under `app` for crawl‑friendly URLs.
 
 Example snippet:
 
@@ -103,8 +102,8 @@ export const generateMetadata: MetadataFactory = async ({ params }) => {
 > **Task:** Install shadcn, fetch live data on the server, display it with fancy components.
 
 ```bash
-npx shadcn-ui@latest init
-npx shadcn-ui@latest add card button
+npx shadcn@latest init
+npx shadcn@latest add card button
 ```
 
 ### 5a • Route Handler
