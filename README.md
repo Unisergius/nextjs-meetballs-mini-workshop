@@ -1,13 +1,14 @@
-# Next.js meetballs 🧆 — 2025‑07‑09
+# Next.js Meetballs 🧆 — 2025‑07‑09
 
-Welcome to the 2‑hour mini‑workshop! In just 120 minutes you'll build a tiny but complete web app using **Next.js 15 App Router**, **SQLite**, **Prisma ORM** and **NextAuth.js** (Credentials provider). By the end you'll have:
+Welcome to the 2‑hour mini‑workshop! In just 120 minutes you’ll build a small but production‑ready app that shows off **Next.js 15 App Router** advantages—nested layouts, streaming server components, the new Metadata API for SEO, and **shadcn/ui** for beautiful React‑based design. We’ll fetch live data from a public API through a Next.js Route Handler so you leave knowing how to bridge server code and client code—*no database required*.
 
-* A fully‑featured CRUD interface for **Recipes** saved in SQLite.
-* Secure authentication with hashed passwords.
-* Middleware‑protected routes (`/dashboard`, `/api/recipes`).
-* Tailwind‑styled pages ready for deployment.
+By the end you’ll have:
 
-> **Why “meetballs”?** Because CRUD stands for *Create‑Read‑Update‑Delicious*.
+* A fully‑featured `/news` page that hydrates from a server‑side fetch.
+* Strong on‑page SEO (dynamic `<title>`, canonical URLs, Open Graph images).
+* Type‑safe API route (`/api/news`) that proxies a 3rd‑party service.
+* Middleware that adds simple request logging & optional token guard.
+* A sprinkle of **shadcn/ui** components styled with Tailwind.
 
 ---
 
@@ -21,15 +22,23 @@ Welcome to the 2‑hour mini‑workshop! In just 120 minutes you'll build a tin
 
 Optional:
 
-* VS Code + Tailwind CSS & Prisma extensions
-* GUI for SQLite (TablePlus, DB Browser)
+* VS Code + Tailwind CSS extension
+* Vercel CLI for easy deploy (`npm i -g vercel`)
 
 ---
 
-## 1 · Kick‑off (10 min)
+## 1 · Kick‑off (10 min)
+
+> **What happens here?** We scaffold a brand‑new Next.js 15 project pre‑wired with TypeScript, Tailwind, the App Router and ESLint. Saying **Yes** to the `src/` directory keeps your code organised; **Turbopack** accelerates local HMR, and sticking with the default `@/*` alias avoids extra config.
 
 ```bash
 npx create-next-app@latest nextjs-meetballs --ts --tailwind --app --eslint
+#   ✔ Where should we create your project? › ./nextjs-meetballs
+#   ✔ Would you like to use src/ directory? › Yes
+#   ✔ Would you like to use Turbopack? › Yes
+#   ✔ Customize the default import alias ( @/* )? › No
+#   ✔ Ready to bake your meetballs!
+
 cd nextjs-meetballs
 npm run dev
 ```
@@ -38,7 +47,9 @@ Open [http://localhost:3000](http://localhost:3000) to verify the scaffold.
 
 ---
 
-## 2 · Tailwind polish (5 min)
+## 2 · Tailwind polish (5 min)
+
+> **Why?** Tailwind is already installed, but we tighten the `content` glob so the JIT compiler only scans files under `src/`. This shaves compile times and eliminates unused styles.
 
 `tailwind.config.ts`
 
@@ -52,148 +63,126 @@ export default {
 
 ---
 
-## 3 · Database & Prisma (15 min)
+## 3 · App Router in depth (25 min)
 
-```bash
-npm i -D prisma
-npm i @prisma/client
-npx prisma init --datasource-provider sqlite
-```
+> **Goal:** Understand how folder structure becomes the API.
 
-`prisma/schema.prisma`
+1. **Layouts & nesting** – create `app/layout.tsx` for the HTML shell; nest `app/(public)/layout.tsx` for the marketing section.
+2. **Dynamic routes** – add `app/news/[slug]/page.tsx` and implement `generateStaticParams` for SSG.
+3. **Server vs Client components** – default to server (no JS shipped) and use `'use client'` only when interactivity is required.
+4. **Streaming** – demonstrate incremental rendering by adding an artificial delay to a child component.
 
-```prisma
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+---
+
+## 4 · SEO & Metadata API (15 min)
+
+> **Objective:** Make every page discoverable and share‑worthy.
+
+* Use the `metadata` export in `app/news/[slug]/page.tsx` to set dynamic titles and descriptions.
+* Generate Open Graph & Twitter card images with the built‑in Image Response (`app/news/[slug]/opengraph-image.tsx`).
+* Add `robots.ts` and `sitemap.xml/route.ts` under `app` for crawl‑friendly URLs.
+
+Example snippet:
+
+```ts
+export const generateMetadata: MetadataFactory = async ({ params }) => {
+  const article = await fetchArticle(params.slug)
+  return {
+    title: `${article.title} | Meetballs` ,
+    description: article.summary,
+    alternates: { canonical: `/news/${params.slug}` },
+    openGraph: { ... }
+  }
 }
-
-model Recipe {
-  id        Int      @id @default(autoincrement())
-  title     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  servings  Int      @default(4)
-  steps     String
-}
-```
-
-Create DB & open Prisma Studio:
-
-```bash
-npx prisma migrate dev --name init
-npx prisma studio
 ```
 
 ---
 
-## 4 · App Router crash course (10 min)
+## 5 · shadcn/ui & External API (20 min)
 
-* `/app` is your root.
-* Folder name = URL segment.
-* `page.tsx` → UI, `route.ts` → API.
-* Group routes with `(group)` syntax.
+> **Task:** Install shadcn, fetch live data on the server, display it with fancy components.
 
----
+```bash
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add card button
+```
 
-## 5 · CRUD API (20 min)
+### 5a • Route Handler
 
-`app/api/recipes/route.ts`
+Create `app/api/news/route.ts` that proxies [NewsAPI.org](https://newsapi.org) (or your chosen public API):
 
 ```ts
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  const data = await prisma.recipe.findMany({ orderBy: { id: 'desc' } })
-  return NextResponse.json(data)
-}
-
-export async function POST(request: Request) {
-  const body = await request.json()
-  const data = await prisma.recipe.create({ data: body })
-  return NextResponse.json(data, { status: 201 })
+  const res = await fetch(`https://newsapi.org/v2/top-headlines?country=us&apiKey=${process.env.NEWS_KEY}`)
+  const json = await res.json()
+  return NextResponse.json(json)
 }
 ```
 
-Add `app/api/recipes/[id]/route.ts` with GET, PUT and DELETE.
+### 5b • Client page
 
----
+`app/news/page.tsx`
 
-## 6 · Pages & Forms (20 min)
+```tsx
+'use client'
+import useSWR from 'swr'
+import { Card, CardContent } from '@/components/ui/card'
 
-* `app/(public)/recipes/page.tsx` → list view
-* `app/(protected)/dashboard/page.tsx` → form, edit & stats
-* `@/components/RecipeForm.tsx` for controlled form that calls the API with `fetch`
+const fetcher = (url: string) => fetch(url).then(r => r.json())
 
----
-
-## 7 · Authentication (20 min)
-
-```bash
-npm i next-auth bcrypt
-```
-
-`app/api/auth/[...nextauth]/route.ts`
-
-```ts
-import NextAuth from 'next-auth'
-import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
-import { prisma } from '@/lib/prisma'
-
-const handler = NextAuth({
-  providers: [
-    CredentialsProvider({
-      credentials: { email: {}, password: {} },
-      async authorize(credentials) {
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } })
-        if (user && bcrypt.compareSync(credentials.password, user.password)) {
-          return { id: user.id.toString(), email: user.email }
-        }
-        return null
-      },
-    }),
-  ],
-  session: { strategy: 'jwt' },
-})
-export { handler as GET, handler as POST }
-```
-
-`.env`
-
-```
-DATABASE_URL=file:./dev.db
-NEXTAUTH_SECRET=yourSuperSecret
-```
-
-Seed an admin user:
-
-```bash
-node prisma/seed.mjs
+export default function NewsPage() {
+  const { data, isLoading } = useSWR('/api/news', fetcher)
+  if (isLoading) return <p>Loading…</p>
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {data.articles.map((a: any) => (
+        <Card key={a.url}>
+          <CardContent>
+            <h2 className="font-semibold mb-2">{a.title}</h2>
+            <p className="text-sm opacity-70">{a.description}</p>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
 ```
 
 ---
 
-## 8 · Protect routes with middleware (10 min)
+## 6 · Middleware (10 min)
+
+> **Why:** Edge‑executed logic before page/API resolution—here we’ll log timing info and optionally block requests without a query token.
 
 `middleware.ts`
 
 ```ts
-import { withAuth } from 'next-auth/middleware'
+import type { NextRequest } from 'next/server'
 
-export default withAuth({
-  pages: { signIn: '/login' },
-})
+export function middleware(request: NextRequest) {
+  const start = Date.now()
+  const response = Response.next()
+  response.headers.set('x-processing-time', `${Date.now() - start}ms`)
+
+  // Simple token gate for protected routes
+  if (request.nextUrl.pathname.startsWith('/news') && !request.nextUrl.searchParams.get('token')) {
+    return Response.redirect(new URL('/?error=token', request.url))
+  }
+  return response
+}
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/recipes/:path*'],
+  matcher: ['/news/:path*', '/api/news/:path*'],
 }
 ```
 
 ---
 
-## 9 · Deploy (optional)
+## 7 · Deploy (optional)
+
+> **Bonus:** Push to **Vercel**; Next.js 15 auto‑optimises images, streaming & edge middleware.
 
 ```bash
 git init && git add . && git commit -m '🧆 initial'
@@ -204,23 +193,51 @@ vercel
 
 ## 🗓️ Two‑Hour Agenda
 
-| Min     | Topic               |
-| ------- | ------------------- |
-| 0‑10    | Scaffold project    |
-| 10‑25   | App Router basics   |
-| 25‑45   | Prisma & DB         |
-| 45‑65   | CRUD API            |
-| 65‑85   | UI + Forms          |
-| 85‑105  | Auth                |
-| 105‑115 | Middleware / Guards |
-| 115‑120 | Q\&A                |
+| Min     | Topic                      |
+| ------- | -------------------------- |
+| 0‑10    | Scaffold project           |
+| 10‑15   | Tailwind polish            |
+| 15‑40   | App Router deep dive       |
+| 40‑55   | SEO & Metadata             |
+| 55‑75   | shadcn install + API route |
+| 75‑95   | Build News page            |
+| 95‑105  | Middleware                 |
+| 105‑120 | Deploy & Q\&A              |
 
 ---
+
+## Architecture overview
+
+Next.js 15 with the App Router embraces the **“file‑system is the API”** philosophy—folders become routes and nested React Server Components form a streaming UI tree. With no database, the only server state lives in *external APIs* and Edge Middleware.
+
+```text
+/app
+  layout.tsx        # Root layout (HTML shell & providers)
+  (public)/
+    page.tsx        # GET /
+  news/
+    page.tsx        # Client page fetching /api/news
+    [slug]/page.tsx # Dynamic route with generateStaticParams
+    opengraph-image.tsx # OG image function
+  api/
+    news/route.ts   # Proxy to NewsAPI
+middleware.ts       # Edge guard + metrics
+```
+
+| Piece                 | What it does                                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| **Layouts**           | Persistent wrappers streamed down; perfect for navbars & global styles |
+| **Server Components** | Default—run on the server; no JS shipped unless necessary              |
+| **Client Components** | Add `'use client'` for interactive pieces (forms, modals)              |
+| **Route Handlers**    | File‑based API: any HTTP verb; lives alongside pages                   |
+| **Middleware**        | Edge‑executed logic before page/API resolution (auth, logging)         |
+
+Typical request lifecycle: **Edge Middleware → Server Components/layouts → External API fetch → Client Component hydration**.
 
 ### Further reading
 
 * Next.js docs: [https://nextjs.org/docs](https://nextjs.org/docs)
-* Prisma docs: [https://www.prisma.io/docs](https://www.prisma.io/docs)
-* NextAuth.js docs: [https://next-auth.js.org](https://next-auth.js.org)
+* Metadata API: [https://nextjs.org/docs/app/building-your-application/optimizing/metadata](https://nextjs.org/docs/app/building-your-application/optimizing/metadata)
+* shadcn/ui: [https://ui.shadcn.com](https://ui.shadcn.com)
 
 Happy coding & buon appetito! 🧆
