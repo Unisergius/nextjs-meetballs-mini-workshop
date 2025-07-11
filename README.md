@@ -68,7 +68,7 @@ export default {
 > **Goal:** Understand how folder structure becomes the API.
 
 1. **Layouts & nesting** – create `app/layout.tsx` for the HTML shell; nest `app/(public)/layout.tsx` for the marketing section.
-2. **Dynamic routes** – add `app/news/[slug]/page.tsx` and implement `generateStaticParams` for SSG.
+2. **Dynamic routes** – add `app/news/[id]/page.tsx` and implement `generateStaticParams` for SSG.
 3. **Server vs Client components** – default to server (no JS shipped) and use `'use client'` only when interactivity is required.
 4. **Streaming** – demonstrate incremental rendering by adding an artificial delay to a child component.
 
@@ -78,7 +78,9 @@ export default {
 
 > **Objective:** Make every page discoverable and share‑worthy.
 
-* Use the `metadata` export in `app/news/[slug]/page.tsx` to set dynamic titles and descriptions.
+https://nextjs.org/learn/seo
+
+* Use the `metadata` export in `app/news/[id]/page.tsx` to set dynamic titles and descriptions.
 * Generate Open Graph & Twitter card images with the built‑in Image Response (`app/news/[slug]/opengraph-image.tsx`).
 
 Example snippet:
